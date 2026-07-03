@@ -11,13 +11,13 @@ def obtener_config_defecto():
     if os.path.isdir(os.path.join(home, 'Music')):
         ruta_linux = os.path.join(home, 'Music')
     else:
-        ruta_linux = os.path.join(home, 'Musica')
+        ruta_linux = os.path.join(home, 'Música')
         
     # 3. Detectar si existe la carpeta en inglés o español para macOS
     if os.path.isdir(os.path.join(home, 'Music')):
         ruta_macos = os.path.join(home, 'Music')
     else:
-        ruta_macos = os.path.join(home, 'Musica')
+        ruta_macos = os.path.join(home, 'Música')
     
     return {
         'ruta_linux': ruta_linux,
