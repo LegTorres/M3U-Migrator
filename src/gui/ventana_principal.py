@@ -14,7 +14,7 @@ class AppM3UMigrator:
         # Asignar icono de la aplicación
         try:
             base_dir = os.path.dirname(os.path.dirname(__file__))
-            ruta_icono = os.path.join(base_dir, 'assets', 'icono.png')
+            ruta_icono = os.path.join(base_dir, 'assets', 'icon.png')
             if os.path.exists(ruta_icono):
                 self.icono_app = tk.PhotoImage(file=ruta_icono)
                 self.root.iconphoto(False, self.icono_app)
