@@ -1,4 +1,4 @@
-__pycache__
+__pycache__/
 config.ini
-gui/__pycache__
+gui/__pycache__/
 src/config.ini
