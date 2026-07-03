@@ -4,10 +4,25 @@ import configparser
 CONFIG_FILE = 'config.ini'
 
 def obtener_config_defecto():
+    # 1. Obtener la ruta del HOME del usuario de forma segura
+    home = os.path.expanduser('~')
+    
+    # 2. Detectar si existe la carpeta en inglés o español para Linux
+    if os.path.isdir(os.path.join(home, 'Music')):
+        ruta_linux = os.path.join(home, 'Music')
+    else:
+        ruta_linux = os.path.join(home, 'Musica')
+        
+    # 3. Detectar si existe la carpeta en inglés o español para macOS
+    if os.path.isdir(os.path.join(home, 'Music')):
+        ruta_macos = os.path.join(home, 'Music')
+    else:
+        ruta_macos = os.path.join(home, 'Musica')
+    
     return {
-        'ruta_linux': '/media/Datos',
+        'ruta_linux': ruta_linux,
         'prefijo_linux': 'Linux_PL_',
-        'ruta_macos': 'Volumes/Datos',
+        'ruta_macos': ruta_macos,
         'prefijo_macos': 'macOS_PL_'
     }
 
