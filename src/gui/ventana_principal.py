@@ -8,7 +8,7 @@ class AppM3UMigrator:
     def __init__(self, root):
         self.root = root
         self.root.title("Migrador de Listas M3U (Multi-Sistema)")
-        self.root.geometry("600x420") # Aumentamos un poco el alto para el nuevo campo
+        self.root.geometry("600x490") # Aumentamos el alto para acomodar el nuevo campo de música
         self.root.resizable(False, False)
 
         # Asignar icono de la aplicación
@@ -24,9 +24,13 @@ class AppM3UMigrator:
         # Variables de control
         self.ruta_origen = tk.StringVar()
         self.ruta_destino = tk.StringVar() # Almacena la ruta absoluta completa final
+        self.ruta_musica = tk.StringVar()  # NUEVA: Almacena la ruta de la carpeta de música
         self.sistema_objetivo = tk.StringVar(value="Linux")
 
         self.config = backend.cargar_configuracion()
+
+        # NUEVA: Cargar la ruta de música guardada previamente según el sistema inicial
+        self.actualizar_variable_musica()
 
         self.crear_menu()
         self.crear_interfaz()
@@ -45,7 +49,7 @@ class AppM3UMigrator:
         frame.pack(fill=tk.BOTH, expand=True)
 
         # --- SECCIÓN: ARCHIVO ORIGEN ---
-        ttk.Label(frame, text="Lista de reproducción origen (Windows):", font=('Helvetica', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(frame, text="Lista de reproducción a convertir:", font=('Helvetica', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
         frame_origen = ttk.Frame(frame)
         frame_origen.pack(fill=tk.X, pady=(0, 10))
         entry_origen = ttk.Entry(frame_origen, textvariable=self.ruta_origen, state='readonly')
@@ -58,7 +62,15 @@ class AppM3UMigrator:
         self.combo_sistema.pack(fill=tk.X, pady=(0, 10))
         self.combo_sistema.bind("<<ComboboxSelected>>", self.cambio_sistema_operativo)
 
-        # --- SECCIÓN: ARCHIVO DESTINO (NUEVA) ---
+        # --- SECCIÓN NUEVA: DIRECTORIO DE MÚSICA EN EL DESTINO ---
+        ttk.Label(frame, text="Directorio de música:", font=('Helvetica', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        frame_musica = ttk.Frame(frame)
+        frame_musica.pack(fill=tk.X, pady=(0, 10))
+        entry_musica = ttk.Entry(frame_musica, textvariable=self.ruta_musica, state='readonly')
+        entry_musica.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        ttk.Button(frame_musica, text="Seleccionar...", command=self.seleccionar_directorio_musica).pack(side=tk.RIGHT)
+
+        # --- SECCIÓN: ARCHIVO DESTINO ---
         ttk.Label(frame, text="Ubicación y nombre del archivo resultante:", font=('Helvetica', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
         frame_destino = ttk.Frame(frame)
         frame_destino.pack(fill=tk.X, pady=(0, 20))
@@ -110,15 +122,38 @@ class AppM3UMigrator:
         if archivo_salida:
             self.ruta_destino.set(archivo_salida)
 
+    def seleccionar_directorio_musica(self):
+        """NUEVA: Permite buscar una carpeta local y la almacena en el archivo config.ini."""
+        directorio = filedialog.askdirectory(title="Seleccionar carpeta donde está tu música")
+        if directorio:
+            self.ruta_musica.set(directorio)
+            sistema = self.sistema_objetivo.get()
+
+            # Guardamos la nueva ruta en el archivo config.ini mediante el backend
+            backend.guardar_ruta_musica(sistema, directorio)
+
+            # Recargamos la configuración en memoria y actualizamos la UI
+            self.config = backend.cargar_configuracion()
+            self.actualizar_label_info()
+
+    def actualizar_variable_musica(self):
+        """NUEVA: Actualiza la variable en pantalla leyendo lo que hay en la configuración."""
+        ruta_txt = self.config['ruta_linux'] if self.sistema_objetivo.get() == "Linux" else self.config['ruta_macos']
+        self.ruta_musica.set(ruta_txt)
+
     def cambio_sistema_operativo(self, event=None):
-        """Si el usuario cambia el sistema, recalculamos el prefijo del archivo sin perder la carpeta elegida."""
+        """Si el usuario cambia el sistema, recalculamos el prefijo del archivo y actualizamos la carpeta de música."""
         self.config = backend.cargar_configuracion()
+
+        # Sincronizar el campo de música con la ruta correspondiente al sistema seleccionado
+        self.actualizar_variable_musica()
+
         if self.ruta_destino.get():
             # Extraemos la carpeta actual y el nombre limpio
             dir_actual = os.path.dirname(self.ruta_destino.get())
             nombre_actual = os.path.basename(self.ruta_destino.get())
 
-            # Quitamos el prefijo viejo si existía para no acumularlos (ej: Linux_PL_macOS_PL_rock.m3u)
+            # Quitamos el prefijo viejo si existía para no acumularlos
             if nombre_actual.startswith(self.config['prefijo_linux']):
                 nombre_actual = nombre_actual.replace(self.config['prefijo_linux'], "", 1)
             elif nombre_actual.startswith(self.config['prefijo_macos']):
@@ -138,18 +173,28 @@ class AppM3UMigrator:
         # Al cerrar la ventana de configuración, refrescamos la UI
         VentanaConfiguracion(self.root, self.cambio_sistema_operativo)
 
+
     def ejecutar(self):
         origen = self.ruta_origen.get()
         destino = self.ruta_destino.get()
-        ruta_base = self.config['ruta_linux'] if self.sistema_objetivo.get() == "Linux" else self.config['ruta_macos']
+        sistema = self.sistema_objetivo.get()
+        ruta_base = self.ruta_musica.get()
 
         try:
+            # AUTOMATIZACIÓN: Guarda automáticamente la ruta visible en el config.ini antes de migrar
+            backend.guardar_ruta_musica(sistema, ruta_base)
+
+            # Recargamos la configuración interna para que todo el programa quede sincronizado
+            self.config = backend.cargar_configuracion()
+            self.actualizar_label_info()
+
+            # Procedemos con la migración de la lista
             canciones = backend.procesar_playlist(origen, ruta_base, destino)
             messagebox.showinfo(
                 "Éxito",
-                f"Lista exportada correctamente para {self.sistema_objetivo.get()}.\n\n"
+                f"Lista exportada correctamente para {sistema}.\n\n"
                 f"Guardada en:\n{destino}\n\n"
-                f"Procesadas {canciones} canciones."
+                f"Procesadas {canciones} canciones e historial guardado en config.ini."
             )
         except Exception as e:
             messagebox.showerror("Error", f"Error al procesar:\n{str(e)}")
